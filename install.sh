@@ -3,7 +3,7 @@ set -e
 
 # Define variables
 REPO="lucasgio/gam-master"
-BINARY_NAME="gam"
+BINARY_NAME="gmc"
 INSTALL_DIR="/usr/local/bin"
 
 # Detect OS and Arch
@@ -41,7 +41,7 @@ case "$ARCH" in
         ;;
 esac
 
-ASSET_NAME="gam-${ASSET_OS}-${ASSET_ARCH}.tar.gz"
+ASSET_NAME="gmc-${ASSET_OS}-${ASSET_ARCH}.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${ASSET_NAME}"
 
 echo "Detected ${OS} ${ARCH}"
@@ -60,5 +60,5 @@ echo "Installing to ${INSTALL_DIR} (requires sudo)..."
 sudo mv "$TMP_DIR/$BINARY_NAME" "$INSTALL_DIR/"
 sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
-echo "✅ gam installed successfully to ${INSTALL_DIR}/${BINARY_NAME}"
-echo "Try running 'gam --help'"
+echo "✅ gmc installed successfully to ${INSTALL_DIR}/${BINARY_NAME}"
+echo "Try running 'gmc --help'"

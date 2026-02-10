@@ -193,7 +193,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "git-account-manager"
+name = "gmc"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -17,20 +17,20 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: gam
-            asset_name: gam-linux-amd64.tar.gz
+            artifact_name: gmc
+            asset_name: gmc-linux-amd64.tar.gz
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: gam
-            asset_name: gam-macos-amd64.tar.gz
+            artifact_name: gmc
+            asset_name: gmc-macos-amd64.tar.gz
           - os: macos-14
             target: aarch64-apple-darwin
-            artifact_name: gam
-            asset_name: gam-macos-arm64.tar.gz
+            artifact_name: gmc
+            asset_name: gmc-macos-arm64.tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: gam.exe
-            asset_name: gam-windows-amd64.zip
+            artifact_name: gmc.exe
+            asset_name: gmc-windows-amd64.zip
 
     steps:
       - name: Checkout code

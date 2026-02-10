@@ -12,8 +12,8 @@ use open;
 use std::os::unix::fs::PermissionsExt;
 
 #[derive(Parser, Debug)]
-#[command(name = "gam")]
-#[command(about = "Git Account Manager: manage multiple Git SSH accounts easily")]
+#[command(name = "gmc")]
+#[command(about = "Git Manager Command: manage multiple Git SSH accounts easily")]
 struct Args {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -820,7 +820,7 @@ impl SshManager {
                 "🚪 Exit",
             ];
             
-            let selection = Select::new("\n🔑 Git Account Manager (gam) - What would you like to do?", options)
+            let selection = Select::new("\n🔑 Git Manager Command (gmc) - What would you like to do?", options)
                 .prompt()
                 .context("Failed to get menu selection")?;
             

@@ -1,11 +1,11 @@
 [package]
-name = "git-account-manager"
+name = "gmc"
 version = "0.1.0"
 edition = "2021"
-description = "Git Account Manager (gam): Manage multiple Git SSH accounts easily"
+description = "Git Manager Command (gmc): Manage multiple Git SSH accounts easily"
 
 [[bin]]
-name = "gam"
+name = "gmc"
 path = "src/main.rs"
 
 [dependencies]

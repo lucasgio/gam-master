@@ -1,4 +1,4 @@
-# Git Account Manager (gam)
+# Git Manager Command (gmc)
 
 A simple CLI tool to manage multiple Git SSH accounts, now with per-project git configuration.
 
@@ -14,29 +14,57 @@ curl -fsSL https://raw.githubusercontent.com/lucasgio/gam-master/main/install.sh
 iwr https://raw.githubusercontent.com/lucasgio/gam-master/main/install.ps1 -useb | iex
 ```
 
-## Manual Installation (Rust)
+## Troubleshooting
 
-### Qué es Git Account Manager
-- **Gestiona múltiples identidades SSH de Git** (trabajo, personal, etc.) sin fricción.
-- **Aliases por cuenta** (p. ej. `Host github-work`) para evitar conflictos en el mismo host.
-- **Cambio rápido de identidad activa** por host (actualiza `~/.ssh/config` de forma segura).
-- **Generación de claves ED25519** con passphrase opcional e integración con macOS Keychain.
-
-
-### Funcionalidades
-- Generar claves SSH (ED25519) con passphrase opcional e instalación en ssh-agent/Keychain.
+### "gmc: command not found" or "gmc is an alias for..."
+If you use plugins that alias `gmc` (though less common than `gmc`), check with:
 
 ```bash
-gam add
+type gmc
 ```
 
-- Gestionar cuentas: agregar, listar, cambiar activa, eliminar.
+## Manual Installation (Rust)
 
+### Qué es Git Manager Command
+- **Gestiona múltiples identidades SSH de Git** (trabajo, personal, etc.) sin fricción.
+- **Aliases por cuenta** (p. ej. `Host github-work`) para evitar conflictos en el mismo host.
+- **Configuración local por proyecto** (`gmc attach`) para usar el user.name/email correcto.
+
+### Instalación Manual
+
+1.  **Clonar y compilar**:
+    ```bash
+    git clone https://github.com/lucasgio/gam-master.git
+    cd gam-master
+    cargo install --path .
+    ```
+
+2.  **Mover el binario (Opcional pero recomendado)**:
+    ```bash
+    sudo cp ~/.cargo/bin/gmc /usr/local/bin/gmc
+    ```
+
+### Uso
+
+#### 1. Agregar una nueva cuenta
 ```bash
-gam add
-gam list
-gam switch
-gam remove
+gmc add
+```
+
+#### 2. Listar cuentas
+```bash
+gmc list
+```
+
+#### 3. Configurar un repositorio (¡Nuevo!)
+```bash
+cd /path/to/my-repo
+gmc attach
+```
+
+#### 4. Borrar todo (Reset)
+```bash
+gmc reset
 ```
 
 - Aliases por cuenta: crea `Host <alias>` con `HostName`, `IdentityFile` e `IdentitiesOnly yes`.
@@ -49,13 +77,13 @@ git remote set-url origin git@github-work:org/repo.git
 - Cambio de cuenta: actualiza un bloque activo `Host <host>` para usar la clave de la cuenta seleccionada.
 
 ```bash
-gam switch
+gmc switch
 ```
 
 - Ver configuración: muestra el contenido de `~/.ssh/config` desde el menú.
 
 ```bash
-gam
+gmc
 ```
 
 (En el menú, elige "📄 View SSH config")
@@ -63,7 +91,7 @@ gam
 - Limpieza segura: al eliminar una cuenta, quita solo el bloque de esa cuenta en `~/.ssh/config`.
 
 ```bash
-gam remove
+gmc remove
 ```
 
 - Validaciones y seguridad: email válido, permisos 600 en clave privada y manejo de overwrite de claves.

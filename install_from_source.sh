@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Git Account Manager (gam) Installation Script
-# This script compiles and installs the Git Account Manager tool
+# Git Manager Command (gmc) Installation Script
+# This script compiles and installs the Git Manager Command tool
 
 set -e
 
-echo "🔑 Git Account Manager (gam) Installation"
+echo "🔑 Git Manager Command (gmc) Installation"
 echo "========================================="
 
 # Check if Rust is installed
@@ -20,7 +20,7 @@ if [[ "$OSTYPE" != "darwin"* ]]; then
     echo "   It might work on other systems but some features may not work properly."
 fi
 
-echo "🔄 Compiling Git Account Manager (gam)..."
+echo "🔄 Compiling Git Manager Command (gmc)..."
 cargo build --release
 
 if [ $? -eq 0 ]; then
@@ -32,28 +32,28 @@ fi
 
 # Ask user if they want to install globally
 echo ""
-read -p "Do you want to install Git Account Manager (gam) globally? (requires sudo) [y/N]: " -n 1 -r
+read -p "Do you want to install Git Manager Command (gmc) globally? (requires sudo) [y/N]: " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "🔄 Installing globally..."
-    sudo cp target/release/gam /usr/local/bin/
-    echo "✅ gam installed to /usr/local/bin/gam"
+    sudo cp target/release/gmc /usr/local/bin/
+    echo "✅ gmc installed to /usr/local/bin/gmc"
     echo ""
-    echo "You can now run: gam"
+    echo "You can now run: gmc"
 else
-    echo "ℹ️  You can run Git Account Manager using:"
+    echo "ℹ️  You can run Git Manager Command using:"
     echo "   cd $(pwd)"
-    echo "   ./target/release/gam"
+    echo "   ./target/release/gmc"
 fi
 
 echo ""
 echo "🎉 Installation complete!"
 echo ""
 echo "📖 Usage:"
-echo "   gam          # Interactive mode"
-echo "   gam add      # Add new account"
-echo "   gam list     # List accounts"
-echo "   gam switch   # Switch accounts"
-echo "   gam status   # Show current account"
+echo "   gmc          # Interactive mode"
+echo "   gmc add      # Add new account"
+echo "   gmc list     # List accounts"
+echo "   gmc switch   # Switch accounts"
+echo "   gmc status   # Show current account"
 echo ""
 echo "📚 See README.md for detailed documentation"
