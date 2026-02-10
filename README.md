@@ -1,5 +1,21 @@
 # Git Account Manager (gam)
 
+A simple CLI tool to manage multiple Git SSH accounts, now with per-project git configuration.
+
+## Installation
+
+### macOS & Linux
+```bash
+curl -fsSL https://raw.githubusercontent.com/giolabs/gam/master/install.sh | bash
+```
+
+### Windows (PowerShell)
+```powershell
+iwr https://raw.githubusercontent.com/giolabs/gam/master/install.ps1 -useb | iex
+```
+
+## Manual Installation (Rust)
+
 ### Qué es Git Account Manager
 - **Gestiona múltiples identidades SSH de Git** (trabajo, personal, etc.) sin fricción.
 - **Aliases por cuenta** (p. ej. `Host github-work`) para evitar conflictos en el mismo host.

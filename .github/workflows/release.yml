@@ -3,179 +3,61 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
-
-env:
-  CARGO_TERM_COLOR: always
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
-  build-release:
-    name: Build release artifacts (${{ matrix.os }} / ${{ matrix.target }})
+  build-and-release:
+    name: Build and Release
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            ext: ''
-            use_cross: false
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            ext: ''
-            use_cross: true
+            artifact_name: gam
+            asset_name: gam-linux-amd64.tar.gz
           - os: macos-latest
             target: x86_64-apple-darwin
-            ext: ''
-            use_cross: false
-          - os: macos-latest
+            artifact_name: gam
+            asset_name: gam-macos-amd64.tar.gz
+          - os: macos-14
             target: aarch64-apple-darwin
-            ext: ''
-            use_cross: false
+            artifact_name: gam
+            asset_name: gam-macos-arm64.tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            ext: '.exe'
-            use_cross: false
+            artifact_name: gam.exe
+            asset_name: gam-windows-amd64.zip
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust (stable) attempt 1
-        id: install_rust_1
+      - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-        continue-on-error: true
 
-      - name: Install Rust (stable) attempt 2
-        if: steps.install_rust_1.outcome != 'success'
-        id: install_rust_2
-        uses: dtolnay/rust-toolchain@stable
+      - name: Build binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare asset (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar -czf ../../../${{ matrix.asset_name }} ${{ matrix.artifact_name }}
+
+      - name: Prepare asset (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path ${{ matrix.artifact_name }} -DestinationPath ..\..\..\${{ matrix.asset_name }}
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          targets: ${{ matrix.target }}
-        continue-on-error: true
-
-      - name: Install Rust (stable) attempt 3
-        if: steps.install_rust_2.outcome != 'success'
-        id: install_rust_3
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-        continue-on-error: true
-
-      - name: Verify Rust toolchain
-        run: rustc -V && cargo -V
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install cross (Linux cross targets)
-        if: ${{ matrix.use_cross }}
-        run: |
-          for i in 1 2 3; do
-            echo "Attempt $i: install cross"
-            if cargo install cross --git https://github.com/cross-rs/cross; then
-              break
-            fi
-            echo "Retrying in 15s..." && sleep 15
-          done
-
-      - name: Build (release)
-        shell: bash
-        run: |
-          set -e
-          BIN_NAME="gam"
-          for i in 1 2 3; do
-            echo "Attempt $i: build"
-            if [ "${{ matrix.use_cross }}" = "true" ]; then
-              cross build --release --locked --bin "$BIN_NAME" --target ${{ matrix.target }} && break
-            else
-              cargo build --release --locked --bin "$BIN_NAME" --target ${{ matrix.target }} && break
-            fi
-            echo "Retrying in 15s..." && sleep 15
-          done
-
-      - name: Prepare package
-        shell: bash
-        run: |
-          set -euxo pipefail
-          BIN_NAME="gam"
-          TARGET_DIR="target/${{ matrix.target }}/release"
-          OUT_DIR="dist"
-          mkdir -p "$OUT_DIR"
-          BIN_PATH="$TARGET_DIR/$BIN_NAME${{ matrix.ext }}"
-
-          # Create archive name
-          VERSION="${GITHUB_REF#refs/tags/}"
-          PKG_BASENAME="${BIN_NAME}-${VERSION}-${{ matrix.target }}"
-
-          # Copy binary and license/readme
-          mkdir -p "$PKG_BASENAME"
-          cp "$BIN_PATH" "$PKG_BASENAME/"
-          if [ -f LICENSE ]; then cp LICENSE "$PKG_BASENAME/"; fi
-          if [ -f README.md ]; then cp README.md "$PKG_BASENAME/"; fi
-
-          # Archive (zip for Windows, tar.gz otherwise)
-          if [[ "${{ matrix.os }}" == windows-latest ]]; then
-            7z a "$OUT_DIR/$PKG_BASENAME.zip" "$PKG_BASENAME" > /dev/null
-            cp "$OUT_DIR/$PKG_BASENAME.zip" "$OUT_DIR/${BIN_NAME}-${{ matrix.target }}.zip"
-          else
-            tar -czf "$OUT_DIR/$PKG_BASENAME.tar.gz" "$PKG_BASENAME"
-            cp "$OUT_DIR/$PKG_BASENAME.tar.gz" "$OUT_DIR/${BIN_NAME}-${{ matrix.target }}.tar.gz"
-          fi
-
-          # Do not create checksums here to avoid duplicate names across matrices
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: gam-${{ matrix.target }}
-          path: dist/*
-
-  publish:
-    name: Publish Release
-    needs: build-release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-
-      - name: Generate consolidated checksums
-        shell: bash
-        run: |
-          set -euxo pipefail
-          cd dist
-          find . -type f \( -name 'gam-*.tar.gz' -o -name 'gam-*.zip' \) -print0 | xargs -0 shasum -a 256 > gam-SHA256SUMS.txt || true
-
-      - name: Verify GH_TOKEN (PAT) is present
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "GH_TOKEN secret is missing. Create a Personal Access Token with repo scope and add it as repository secret GH_TOKEN." >&2
-            exit 1
-          fi
-          
-      - name: Upload release assets (clobber)
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          set -euxo pipefail
-          VERSION="${GITHUB_REF#refs/tags/}"
-          mapfile -d '' FILES < <(find dist -type f \( -name 'gam-*.tar.gz' -o -name 'gam-*.zip' -o -name 'gam-*.txt' \) -print0)
-          if [ "${#FILES[@]}" -eq 0 ]; then
-            echo "No release assets found in dist" >&2
-            exit 1
-          fi
-          for file in "${FILES[@]}"; do
-            gh release upload "$VERSION" "$file" --clobber
-          done
+          files: ${{ matrix.asset_name }}
