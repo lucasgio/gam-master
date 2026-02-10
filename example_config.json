@@ -1,0 +1,26 @@
+{
+  "accounts": {
+    "work": {
+      "name": "work",
+      "email": "juan@empresa.com",
+      "key_file": "id_work_github_com",
+      "host": "github.com",
+      "description": "Cuenta de trabajo para GitHub"
+    },
+    "personal": {
+      "name": "personal", 
+      "email": "juan.personal@gmail.com",
+      "key_file": "id_personal_github_com",
+      "host": "github.com",
+      "description": "Cuenta personal para GitHub"
+    },
+    "gitlab-work": {
+      "name": "gitlab-work",
+      "email": "juan@empresa.com", 
+      "key_file": "id_gitlab-work_gitlab_com",
+      "host": "gitlab.com",
+      "description": "Cuenta de trabajo para GitLab"
+    }
+  },
+  "current_account": "personal"
+}

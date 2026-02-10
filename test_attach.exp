@@ -1,0 +1,85 @@
+#!/usr/bin/expect -f
+
+set timeout 10
+
+# Create temp home and repo
+set raw_home [exec mktemp -d]
+set env(HOME) $raw_home
+exec mkdir -p $raw_home/.ssh
+exec mkdir -p $raw_home/test-repo
+
+# Build binary path (Assuming run from project root)
+set project_root [pwd]
+set binary "$project_root/target/debug/gam"
+
+# Initialize git repo
+cd $raw_home/test-repo
+exec git init
+
+# --- 1. Add Account ---
+spawn $binary add
+expect "Account name"
+send "git-acc\r"
+expect "Email address"
+send "git@example.com\r"
+expect "Select the host type"
+send "\r"
+expect "Description"
+send "Git Test\r"
+
+# NEW PROMPTS
+expect "Git User Name"
+send "Git User Name\r"
+expect "Git User Email"
+send "git.user@example.com\r"
+
+expect "Do you want to set a passphrase"
+send "n\r"
+
+# Handle Open GitHub settings (specific to github.com host)
+expect "Do you want to open GitHub settings"
+send "n\r"
+
+expect "Do you want to update your SSH config"
+send "y\r"
+expect "Account 'git-acc' added successfully"
+wait
+
+# --- 2. Attach Account ---
+# Must be run inside the git repo
+cd $raw_home/test-repo
+spawn $binary attach
+expect "Select account to attach"
+send "\r" 
+# Select first one (git-acc)
+expect "Repository configured successfully"
+wait
+
+# --- 3. Verify Git Config ---
+set user_name [exec git config --local user.name]
+set user_email [exec git config --local user.email]
+set ssh_cmd [exec git config --local core.sshCommand]
+
+if {$user_name == "Git User Name"} {
+    puts "✅ user.name correct: $user_name"
+} else {
+    puts "❌ user.name incorrect: $user_name"
+    exit 1
+}
+
+if {$user_email == "git.user@example.com"} {
+    puts "✅ user.email correct: $user_email"
+} else {
+    puts "❌ user.email incorrect: $user_email"
+    exit 1
+}
+
+if {[string match "*ssh -i*id_git-acc_github_com*" $ssh_cmd]} {
+    puts "✅ core.sshCommand correct: $ssh_cmd"
+} else {
+    puts "❌ core.sshCommand incorrect: $ssh_cmd"
+    exit 1
+}
+
+puts "🎉 Attach Test Passed!"
+exec rm -rf $raw_home
