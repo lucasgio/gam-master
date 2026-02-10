@@ -2,7 +2,7 @@
 set -e
 
 # Define variables
-REPO="giolabs/gam"
+REPO="lucasgio/gam-master"
 BINARY_NAME="gam"
 INSTALL_DIR="/usr/local/bin"
 

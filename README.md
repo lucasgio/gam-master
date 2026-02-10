@@ -6,12 +6,12 @@ A simple CLI tool to manage multiple Git SSH accounts, now with per-project git 
 
 ### macOS & Linux
 ```bash
-curl -fsSL https://raw.githubusercontent.com/giolabs/gam/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lucasgio/gam-master/main/install.sh | bash
 ```
 
 ### Windows (PowerShell)
 ```powershell
-iwr https://raw.githubusercontent.com/giolabs/gam/master/install.ps1 -useb | iex
+iwr https://raw.githubusercontent.com/lucasgio/gam-master/main/install.ps1 -useb | iex
 ```
 
 ## Manual Installation (Rust)

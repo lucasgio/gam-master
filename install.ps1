@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$Repo = "giolabs/gam"
+$Repo = "lucasgio/gam-master"
 $Asset = "gam-windows-amd64.zip"
 $Url = "https://github.com/$Repo/releases/latest/download/$Asset"
 $InstallDir = "$env:USERPROFILE\.gam\bin"
