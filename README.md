@@ -1,4 +1,4 @@
-# Git Manager Command (gmc)
+# Git Account Manager CLI (gam-cli)
 
 A simple CLI tool to manage multiple Git SSH accounts, now with per-project git configuration.
 
@@ -103,8 +103,9 @@ gmc remove
   Para instalar la última versión (requiere `curl`):
 
   ```bash
+  ```bash
   # macOS / Linux
-  curl -fsSL https://raw.githubusercontent.com/giolabs/gam/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/lucasgio/gam-master/main/install.sh | bash
   ```
 
   Esto descargará el binario adecuado para tu sistema y arquitectura, y lo instalará en `/usr/local/bin` (si tienes permiso sudo) o `$HOME/.local/bin`.
@@ -113,8 +114,9 @@ gmc remove
   Requiere Rust instalado (`rustup.rs`).
 
   ```bash
-  git clone https://github.com/giolabs/gam.git
-  cd gam
+  ```bash
+  git clone https://github.com/lucasgio/gam-master.git
+  cd gam-master
   ./install_from_source.sh
   ```
 
@@ -124,7 +126,8 @@ gmc remove
 3) Desarrolla y valida localmente:
 ```bash
 cargo build --release
-cargo run --bin gam
+cargo build --release
+cargo run --bin gam-cli
 ```
 4) Abre un Pull Request con una descripción clara
 

@@ -10,7 +10,7 @@ exec mkdir -p $raw_home/test-repo
 
 # Build binary path (Assuming run from project root)
 set project_root [pwd]
-set binary "$project_root/target/debug/gmc"
+set binary "$project_root/target/debug/gam-cli"
 
 # Initialize git repo
 cd $raw_home/test-repo

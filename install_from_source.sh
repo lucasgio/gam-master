@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Git Manager Command (gmc) Installation Script
-# This script compiles and installs the Git Manager Command tool
+# Git Account Manager CLI (gam-cli) Installation Script
+# This script compiles and installs the Git Account Manager CLI tool
 
 set -e
 
-echo "🔑 Git Manager Command (gmc) Installation"
+echo "🔑 Git Account Manager CLI (gam-cli) Installation"
 echo "========================================="
 
 # Check if Rust is installed
@@ -20,7 +20,7 @@ if [[ "$OSTYPE" != "darwin"* ]]; then
     echo "   It might work on other systems but some features may not work properly."
 fi
 
-echo "🔄 Compiling Git Manager Command (gmc)..."
+echo "🔄 Compiling Git Account Manager CLI (gam-cli)..."
 cargo build --release
 
 if [ $? -eq 0 ]; then
@@ -32,28 +32,28 @@ fi
 
 # Ask user if they want to install globally
 echo ""
-read -p "Do you want to install Git Manager Command (gmc) globally? (requires sudo) [y/N]: " -n 1 -r
+read -p "Do you want to install Git Account Manager CLI (gam-cli) globally? (requires sudo) [y/N]: " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "🔄 Installing globally..."
-    sudo cp target/release/gmc /usr/local/bin/
-    echo "✅ gmc installed to /usr/local/bin/gmc"
+    sudo cp target/release/gam-cli /usr/local/bin/
+    echo "✅ gam-cli installed to /usr/local/bin/gam-cli"
     echo ""
-    echo "You can now run: gmc"
+    echo "You can now run: gam-cli"
 else
-    echo "ℹ️  You can run Git Manager Command using:"
+    echo "ℹ️  You can run Git Account Manager CLI using:"
     echo "   cd $(pwd)"
-    echo "   ./target/release/gmc"
+    echo "   ./target/release/gam-cli"
 fi
 
 echo ""
 echo "🎉 Installation complete!"
 echo ""
 echo "📖 Usage:"
-echo "   gmc          # Interactive mode"
-echo "   gmc add      # Add new account"
-echo "   gmc list     # List accounts"
-echo "   gmc switch   # Switch accounts"
-echo "   gmc status   # Show current account"
+echo "   gam-cli          # Interactive mode"
+echo "   gam-cli add      # Add new account"
+echo "   gam-cli list     # List accounts"
+echo "   gam-cli switch   # Switch accounts"
+echo "   gam-cli status   # Show current account"
 echo ""
 echo "📚 See README.md for detailed documentation"
