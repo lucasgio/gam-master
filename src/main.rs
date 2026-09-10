@@ -1,40 +1,59 @@
+mod ui;
+
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use anyhow::{Context, Result};
 use inquire::{Confirm, Password, Select, Text};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use open;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 #[derive(Parser, Debug)]
 #[command(name = "gam-cli")]
-#[command(about = "Git Account Manager CLI: manage multiple Git SSH accounts easily")]
+#[command(version)]
+#[command(about = "Manage multiple Git SSH identities, per repository")]
+#[command(long_about = ui::ROOT_LONG_ABOUT)]
+#[command(after_help = ui::ROOT_AFTER_HELP)]
+#[command(styles = ui::clap_styles())]
+#[command(propagate_version = true)]
 struct Args {
+    /// Show extra diagnostics (keys, fingerprints, current repo)
+    #[arg(short, long, global = true)]
+    verbose: bool,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
 
-#[derive(clap::Subcommand, Debug)]
+#[derive(Subcommand, Debug)]
 enum Commands {
-    /// Add a new SSH account
+    /// Create a new SSH account and key
+    #[command(after_help = "Examples:\n  gam-cli add\n\nThen add the printed public key to GitHub/GitLab and run `gam-cli attach` in a repo.")]
     Add,
-    /// List all accounts
+    /// List configured accounts
+    #[command(after_help = "Examples:\n  gam-cli list\n  gam-cli list -v")]
     List,
-    /// Switch between accounts
+    /// Switch the global active account (legacy)
+    #[command(after_help = "Examples:\n  gam-cli switch\n\nThis remaps Host github.com (or the account host) in ~/.ssh/config.\nPrefer `gam-cli attach` so each repo keeps its own identity.")]
     Switch,
-    /// Remove an account
+    /// Remove an account and its key
     Remove,
-    /// Show current active account
+    /// Show the global active account and this repo's git identity
+    #[command(after_help = "Examples:\n  gam-cli status\n  gam-cli status -v")]
     Status,
-    /// Reset application (delete all accounts and config)
+    /// Delete every GAM account and managed SSH keys
     Reset,
-    /// Attach the current local git repo to a specific account
+    /// Bind the current git repo to an account (user.name/email + SSH key)
+    #[command(after_help = "Examples:\n  cd /path/to/repo\n  gam-cli attach\n\nOptional next step:\n  git remote set-url origin git@<ssh-alias>:org/repo.git")]
     Attach,
+    /// Diagnose SSH keys, config files and the current git identity
+    #[command(after_help = "Examples:\n  gam-cli doctor\n  gam-cli doctor -v")]
+    Doctor,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,10 +79,11 @@ struct SshManager {
     config_path: PathBuf,
     ssh_dir: PathBuf,
     config: Config,
+    verbose: bool,
 }
 
 impl SshManager {
-    fn new() -> Result<Self> {
+    fn new(verbose: bool) -> Result<Self> {
         let home_dir = home::home_dir().context("Could not find home directory")?;
         let ssh_dir = home_dir.join(".ssh");
         let new_config_path = ssh_dir.join("gam_config.json");
@@ -95,6 +115,7 @@ impl SshManager {
             config_path: new_config_path.clone(),
             ssh_dir,
             config,
+            verbose,
         };
 
         if loaded_from_legacy {
@@ -332,7 +353,19 @@ impl SshManager {
             self.update_ssh_config(&name)?;
         }
         
-        println!("\n🎉 Account '{}' added successfully!", name);
+        println!("\n🎉 Account '{name}' added successfully!");
+        println!();
+        println!("  Config:   {}", ui::path_home(&self.config_path));
+        println!("  Key:      {}", ui::path_home(&key_path));
+        println!(
+            "  SSH alias git@{}:org/repo.git",
+            Self::alias_for(self.config.accounts.get(&name).unwrap())
+        );
+        ui::next_steps(&[
+            "Add the public key on the host (GitHub → Settings → SSH keys)",
+            "In a repository run: gam-cli attach",
+            "Optional: git remote set-url origin git@<alias>:org/repo.git",
+        ]);
         Ok(())
     }
     
@@ -514,33 +547,94 @@ impl SshManager {
     
     fn list_accounts(&self) -> Result<()> {
         if self.config.accounts.is_empty() {
-            println!("📭 No accounts found. Use 'gam add' to create one.");
+            ui::empty_state(
+                "No accounts found.",
+                &["gam-cli add     Create your first SSH identity"],
+            );
             return Ok(());
         }
-        
-        println!("\n📋 SSH Accounts:\n");
-        
-        for (name, account) in &self.config.accounts {
-            let active = if Some(name) == self.config.current_account.as_ref() {
-                "🟢 (active)"
-            } else {
-                "⚪"
-            };
-            
-            println!("  {} {} ({})", active, name, account.email);
-            println!("      Host: {}", account.host);
-            if let Some(desc) = &account.description {
-                println!("      Description: {}", desc);
-            }
+
+        let mut names: Vec<String> = self.config.accounts.keys().cloned().collect();
+        names.sort();
+
+        println!();
+        println!("📋 {} account(s)  ·  config {}", names.len(), ui::path_home(&self.config_path));
+        println!();
+
+        for name in names {
+            let account = self.config.accounts.get(&name).unwrap();
+            self.print_account_card(&name, account);
             println!();
         }
-        
+
+        if !self.verbose {
+            ui::hint("gam-cli list -v    fingerprints, public key path and SSH config");
+        }
+        ui::hint("gam-cli attach     bind the current git repo to one of these accounts");
         Ok(())
+    }
+
+    fn print_account_card(&self, name: &str, account: &SshAccount) {
+        let active = Some(name) == self.config.current_account.as_deref();
+        let marker = if active { "🟢" } else { "⚪" };
+        let active_tag = if active { "  (active)" } else { "" };
+        println!("  {marker} {name}{active_tag}");
+        ui::kv("Email", &account.email);
+        ui::kv("Host", &account.host);
+        ui::kv("SSH alias", Self::alias_for(account));
+        if let Some(desc) = &account.description {
+            ui::kv("About", desc);
+        }
+        match (&account.git_user_name, &account.git_user_email) {
+            (Some(n), Some(e)) => ui::kv("Git", format!("{n} <{e}>")),
+            (Some(n), None) => ui::kv("Git name", n),
+            (None, Some(e)) => ui::kv("Git email", e),
+            _ => ui::kv("Git", "(not set — attach will skip user.name/email)"),
+        }
+
+        let key_path = self.ssh_dir.join(&account.key_file);
+        let key_state = if key_path.exists() {
+            "present"
+        } else {
+            "MISSING"
+        };
+        ui::kv("Key", format!("{} ({key_state})", ui::path_home(&key_path)));
+
+        if self.verbose {
+            let pub_path = key_path.with_extension("pub");
+            if pub_path.exists() {
+                ui::kv("Public", ui::path_home(&pub_path));
+                if let Some(fp) = key_fingerprint(&pub_path) {
+                    ui::kv("Fingerprint", fp);
+                }
+            } else {
+                ui::kv("Public", "missing");
+            }
+            let ssh_config = self.ssh_dir.join("config");
+            let alias = Self::alias_for(account);
+            let in_config = ssh_config
+                .exists()
+                .then(|| fs::read_to_string(&ssh_config).ok())
+                .flatten()
+                .map(|c| c.contains(&format!("Host {alias}")))
+                .unwrap_or(false);
+            ui::kv(
+                "ssh config",
+                if in_config {
+                    format!("Host {alias} ✓")
+                } else {
+                    format!("no Host {alias} block")
+                },
+            );
+        }
     }
     
     fn switch_account(&mut self) -> Result<()> {
         if self.config.accounts.is_empty() {
-            println!("📭 No accounts found. Use 'gam add' to create one.");
+            ui::empty_state(
+                "No accounts found.",
+                &["gam-cli add     Create your first SSH identity"],
+            );
             return Ok(());
         }
         
@@ -559,57 +653,141 @@ impl SshManager {
             self.upsert_active_mapping(&account.host, &key_path)?;
         }
         
-        println!("✅ Switched to account '{}'", selected);
+        println!("✅ Switched to account '{selected}'");
+        if let Some(account) = self.config.accounts.get(&selected) {
+            println!(
+                "   Host {} now uses {} in ~/.ssh/config (legacy global mapping).",
+                account.host,
+                account.key_file
+            );
+            ui::hint("This is global. For one repo only, use gam-cli attach.");
+        }
         Ok(())
     }
     
     fn show_status(&self) -> Result<()> {
-        if let Some(current) = &self.config.current_account {
-            if let Some(account) = self.config.accounts.get(current) {
-                println!("\n🟢 Current active account: {} ({})", current, account.email);
-                println!("   Host: {}", account.host);
-                if let Some(desc) = &account.description {
-                    println!("   Description: {}", desc);
-                }
-                
-                // Test SSH connection
-                println!("\n🔄 Testing SSH connection...");
-                let key_path = self.ssh_dir.join(&account.key_file);
-                let output = Command::new("ssh")
-                    .arg("-T")
-                    .arg("-i")
-                    .arg(&key_path)
-                    .arg(&format!("git@{}", account.host))
-                    .output();
-                
-                match output {
-                    Ok(result) => {
-                        let stderr = String::from_utf8_lossy(&result.stderr);
-                        if stderr.contains("successfully authenticated") {
-                            println!("✅ SSH connection successful!");
-                        } else if stderr.contains("Permission denied") {
-                            println!("❌ SSH connection failed - key not added to {} or incorrect key", account.host);
-                        } else {
-                            println!("ℹ️  SSH test result: {}", stderr.trim());
-                        }
-                    }
-                    Err(e) => {
-                        println!("⚠️  Could not test SSH connection: {}", e);
-                    }
-                }
-            } else {
-                println!("❌ Current account '{}' not found in configuration", current);
+        println!();
+        println!("📊 GAM status");
+        ui::kv_indent("   ", "Config", ui::path_home(&self.config_path));
+        ui::kv_indent("   ", "Accounts", self.config.accounts.len().to_string());
+
+        match self.config.current_account.as_ref() {
+            None => {
+                println!();
+                ui::empty_state(
+                    "No global active account.",
+                    &[
+                        "gam-cli switch    Set the legacy global mapping",
+                        "gam-cli attach    Preferred: identity for this repo only",
+                    ],
+                );
             }
-        } else {
-            println!("📭 No active account set. Use 'gam switch' to select one.");
+            Some(current) => match self.config.accounts.get(current) {
+                None => {
+                    println!();
+                    println!("❌ Current account '{current}' is missing from config.");
+                    ui::next_steps(&["gam-cli list", "gam-cli switch"]);
+                }
+                Some(account) => {
+                    println!();
+                    println!("🟢 Active account: {current}");
+                    self.print_account_card(current, account);
+                    println!();
+                    println!("🔄 SSH test (git@{})...", account.host);
+                    self.print_ssh_test(account);
+                    if !self.verbose {
+                        ui::hint("gam-cli status -v    fingerprints and extra SSH config detail");
+                    }
+                }
+            },
         }
-        
+
+        self.print_repo_status()?;
+        Ok(())
+    }
+
+    fn print_ssh_test(&self, account: &SshAccount) {
+        let key_path = self.ssh_dir.join(&account.key_file);
+        if !key_path.exists() {
+            println!("   ❌ Private key missing: {}", ui::path_home(&key_path));
+            return;
+        }
+        let output = Command::new("ssh")
+            .arg("-o")
+            .arg("BatchMode=yes")
+            .arg("-o")
+            .arg("StrictHostKeyChecking=accept-new")
+            .arg("-o")
+            .arg("ConnectTimeout=8")
+            .arg("-T")
+            .arg("-i")
+            .arg(&key_path)
+            .arg(format!("git@{}", account.host))
+            .output();
+
+        match output {
+            Ok(result) => {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                if stderr.contains("successfully authenticated") {
+                    println!("   ✅ SSH authentication succeeded");
+                } else if stderr.contains("Permission denied") {
+                    println!(
+                        "   ❌ Permission denied — add the public key on {}",
+                        account.host
+                    );
+                    ui::hint("gam-cli list -v    copy the public key path");
+                } else {
+                    println!("   ℹ️  {}", stderr.trim());
+                }
+            }
+            Err(e) => println!("   ⚠️  Could not run ssh: {e}"),
+        }
+    }
+
+    fn print_repo_status(&self) -> Result<()> {
+        println!();
+        println!("📁 Current directory");
+        match repo_context()? {
+            None => {
+                println!("   Not a git repository.");
+                ui::hint("cd into a repo, then gam-cli attach");
+            }
+            Some(ctx) => {
+                ui::kv_indent("   ", "Root", ui::path_home(&ctx.root));
+                ui::kv_indent(
+                    "   ",
+                    "Origin",
+                    ctx.origin.as_deref().unwrap_or("(no origin)"),
+                );
+                ui::kv_indent(
+                    "   ",
+                    "user.name",
+                    ctx.user_name.as_deref().unwrap_or("(unset)"),
+                );
+                ui::kv_indent(
+                    "   ",
+                    "user.email",
+                    ctx.user_email.as_deref().unwrap_or("(unset)"),
+                );
+                ui::kv_indent(
+                    "   ",
+                    "sshCommand",
+                    ctx.ssh_command.as_deref().unwrap_or("(default ssh)"),
+                );
+                if ctx.user_name.is_none() && ctx.user_email.is_none() {
+                    ui::hint("gam-cli attach    set this repo's Git identity");
+                }
+            }
+        }
         Ok(())
     }
     
     fn remove_account(&mut self) -> Result<()> {
         if self.config.accounts.is_empty() {
-            println!("📭 No accounts found.");
+            ui::empty_state(
+                "No accounts found.",
+                &["gam-cli add     Create your first SSH identity"],
+            );
             return Ok(());
         }
         
@@ -738,71 +916,195 @@ impl SshManager {
     }
     
     fn attach_repo(&self) -> Result<()> {
-        // Check if we are in a git repo
-        let output = Command::new("git")
-            .arg("rev-parse")
-            .arg("--is-inside-work-tree")
-            .output();
-
-        match output {
-            Ok(out) => {
-                if !out.status.success() {
-                    println!("❌ Current directory is not a git repository.");
-                    return Ok(());
-                }
-            }
-            Err(_) => {
-                println!("❌ Failed to run 'git'. Is git installed?");
+        match repo_context()? {
+            None => {
+                println!("❌ Current directory is not a git repository.");
+                ui::next_steps(&[
+                    "cd /path/to/your/repo",
+                    "gam-cli attach",
+                ]);
                 return Ok(());
             }
-        }
+            Some(ctx) => {
+                if self.config.accounts.is_empty() {
+                    ui::empty_state(
+                        "No accounts found.",
+                        &["gam-cli add     Create an identity first"],
+                    );
+                    return Ok(());
+                }
 
-        if self.config.accounts.is_empty() {
-             println!("📭 No accounts found. Use 'gam add' to create one.");
-             return Ok(());
-        }
+                println!();
+                println!("📁 Repository {}", ui::path_home(&ctx.root));
+                ui::kv_indent(
+                    "   ",
+                    "Origin",
+                    ctx.origin.as_deref().unwrap_or("(no origin)"),
+                );
+                ui::kv_indent(
+                    "   ",
+                    "Now",
+                    format!(
+                        "{} <{}>",
+                        ctx.user_name.as_deref().unwrap_or("unset"),
+                        ctx.user_email.as_deref().unwrap_or("unset")
+                    ),
+                );
 
-        let account_names: Vec<String> = self.config.accounts.keys().cloned().collect();
-        
-        let selected = Select::new("Select account to attach to this repo:", account_names)
-            .prompt()
-            .context("Failed to get account selection")?;
+                let mut account_names: Vec<String> = self.config.accounts.keys().cloned().collect();
+                account_names.sort();
 
-        if let Some(account) = self.config.accounts.get(&selected) {
-            println!("\n🔗 Attaching account '{}' to current repository...", selected);
+                let selected = Select::new("Select account to attach to this repo:", account_names)
+                    .prompt()
+                    .context("Failed to get account selection")?;
 
-            // Set user.name
-            if let Some(name) = &account.git_user_name {
+                let Some(account) = self.config.accounts.get(&selected) else {
+                    return Ok(());
+                };
+
+                println!();
+                println!("🔗 Attaching '{selected}'…");
+
+                if account.git_user_name.is_none() && account.git_user_email.is_none() {
+                    println!("   ⚠️  This account has no git user.name/email. Only SSH will be set.");
+                    ui::hint("Edit ~/.ssh/gam_config.json or re-add the account to store Git identity.");
+                }
+
+                if let Some(name) = &account.git_user_name {
+                    Command::new("git")
+                        .args(["config", "--local", "user.name", name])
+                        .status()
+                        .context("Failed to set user.name")?;
+                    println!("   user.name        = {name}");
+                }
+
+                if let Some(email) = &account.git_user_email {
+                    Command::new("git")
+                        .args(["config", "--local", "user.email", email])
+                        .status()
+                        .context("Failed to set user.email")?;
+                    println!("   user.email       = {email}");
+                }
+
+                let key_path = self.ssh_dir.join(&account.key_file);
+                if !key_path.exists() {
+                    println!(
+                        "   ⚠️  Key {} is missing. SSH will fail until the file exists.",
+                        ui::path_home(&key_path)
+                    );
+                }
+                let ssh_command = format!("ssh -i {} -o IdentitiesOnly=yes", key_path.display());
                 Command::new("git")
-                    .args(&["config", "--local", "user.name", name])
+                    .args(["config", "--local", "core.sshCommand", &ssh_command])
                     .status()
-                    .context("Failed to set user.name")?;
-                println!("   Set user.name = {}", name);
+                    .context("Failed to set core.sshCommand")?;
+                println!("   core.sshCommand  = {}", account.key_file);
+
+                let alias = Self::alias_for(account);
+                println!();
+                println!("✅ Repository uses account '{selected}'.");
+                let mut steps = vec![
+                    "git commit / git fetch to verify the identity",
+                ];
+                if ctx.origin.is_some() {
+                    steps.push("optional: git remote set-url origin git@ALIAS:org/repo.git");
+                }
+                ui::next_steps(&steps);
+                println!("   Replace ALIAS with: {alias}");
             }
-
-            // Set user.email
-            if let Some(email) = &account.git_user_email {
-                Command::new("git")
-                     .args(&["config", "--local", "user.email", email])
-                     .status()
-                     .context("Failed to set user.email")?;
-                println!("   Set user.email = {}", email);
-            }
-
-            // Set core.sshCommand
-            // ssh -i ~/.ssh/id_files -o IdentitiesOnly=yes
-            let key_path = self.ssh_dir.join(&account.key_file);
-            let ssh_command = format!("ssh -i {} -o IdentitiesOnly=yes", key_path.display());
-            
-            Command::new("git")
-                .args(&["config", "--local", "core.sshCommand", &ssh_command])
-                .status()
-                .context("Failed to set core.sshCommand")?;
-            println!("   Set core.sshCommand to use key: {}", account.key_file);
-
-            println!("\n✅ Repository configured successfully!");
         }
 
+        Ok(())
+    }
+
+    fn doctor(&self) -> Result<()> {
+        println!();
+        println!("🩺 GAM doctor");
+        let mut issues = 0usize;
+
+        println!();
+        println!("Environment");
+        match Command::new("git").arg("--version").output() {
+            Ok(o) if o.status.success() => {
+                println!(
+                    "   ✅ git  {}",
+                    String::from_utf8_lossy(&o.stdout).trim()
+                );
+            }
+            _ => {
+                println!("   ❌ git not found in PATH");
+                issues += 1;
+            }
+        }
+        match Command::new("ssh").arg("-V").output() {
+            Ok(o) => {
+                let msg = if o.stderr.is_empty() {
+                    String::from_utf8_lossy(&o.stdout)
+                } else {
+                    String::from_utf8_lossy(&o.stderr)
+                };
+                println!("   ✅ ssh  {}", msg.trim());
+            }
+            _ => {
+                println!("   ❌ ssh not found in PATH");
+                issues += 1;
+            }
+        }
+        if self.config_path.exists() {
+            println!("   ✅ config {}", ui::path_home(&self.config_path));
+        } else {
+            println!(
+                "   ⚠️  no config at {} (will be created on first add)",
+                ui::path_home(&self.config_path)
+            );
+        }
+
+        println!();
+        println!("Accounts ({})", self.config.accounts.len());
+        if self.config.accounts.is_empty() {
+            ui::hint("gam-cli add");
+        }
+        let mut names: Vec<String> = self.config.accounts.keys().cloned().collect();
+        names.sort();
+        for name in &names {
+            let account = self.config.accounts.get(name).unwrap();
+            let key_path = self.ssh_dir.join(&account.key_file);
+            let pub_path = key_path.with_extension("pub");
+            let mut flags = Vec::new();
+            if key_path.exists() {
+                flags.push("key ✓");
+            } else {
+                flags.push("key MISSING");
+                issues += 1;
+            }
+            if pub_path.exists() {
+                flags.push("pub ✓");
+            } else {
+                flags.push("pub MISSING");
+                issues += 1;
+            }
+            if account.git_user_email.is_none() {
+                flags.push("no git email");
+            }
+            println!("   • {name}  {}", flags.join(" · "));
+            if self.verbose {
+                self.print_account_card(name, account);
+                println!();
+            }
+        }
+
+        println!();
+        self.print_repo_status()?;
+
+        println!();
+        if self.config.accounts.is_empty() {
+            println!("ℹ️  No accounts yet. That is OK — run gam-cli add when you are ready.");
+        } else if issues == 0 {
+            println!("✅ No problems found.");
+        } else {
+            println!("⚠️  {issues} issue(s) found. See lines marked ❌ or MISSING.");
+            ui::next_steps(&["gam-cli list -v", "gam-cli add", "docs/how-to/usar-varias-cuentas.md"]);
+        }
         Ok(())
     }
 
@@ -814,13 +1116,17 @@ impl SshManager {
                 "🔄 Switch account",
                 "🔗 Attach to current repo",
                 "📊 Show status",
+                "🩺 Doctor (diagnose setup)",
                 "📄 View SSH config",
                 "🗑️  Remove account",
                 "⚠️  Reset application",
                 "🚪 Exit",
             ];
             
-            let selection = Select::new("\n🔑 Git Account Manager CLI (gam-cli) - What would you like to do?", options)
+            let selection = Select::new(
+                "\n🔑 Git Account Manager (gam-cli) — what would you like to do?",
+                options,
+            )
                 .prompt()
                 .context("Failed to get menu selection")?;
             
@@ -830,6 +1136,7 @@ impl SshManager {
                 "🔄 Switch account" => self.switch_account()?,
                 "🔗 Attach to current repo" => self.attach_repo()?,
                 "📊 Show status" => self.show_status()?,
+                "🩺 Doctor (diagnose setup)" => self.doctor()?,
                 "📄 View SSH config" => self.view_ssh_config()?,
                 "🗑️  Remove account" => self.remove_account()?,
                 "⚠️  Reset application" => self.reset_application()?,
@@ -852,7 +1159,7 @@ impl SshManager {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let mut manager = SshManager::new()
+    let mut manager = SshManager::new(args.verbose)
         .context("Failed to initialize SSH manager")?;
     
     match args.command {
@@ -863,6 +1170,102 @@ fn main() -> Result<()> {
         Some(Commands::Status) => manager.show_status(),
         Some(Commands::Reset) => manager.reset_application(),
         Some(Commands::Attach) => manager.attach_repo(),
+        Some(Commands::Doctor) => manager.doctor(),
         None => manager.interactive_menu(),
+    }
+}
+
+struct RepoContext {
+    root: PathBuf,
+    origin: Option<String>,
+    user_name: Option<String>,
+    user_email: Option<String>,
+    ssh_command: Option<String>,
+}
+
+fn git_ok(args: &[&str]) -> Option<String> {
+    let output = Command::new("git").args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if s.is_empty() {
+        None
+    } else {
+        Some(s)
+    }
+}
+
+fn repo_context() -> Result<Option<RepoContext>> {
+    match Command::new("git")
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+    {
+        Err(_) => anyhow::bail!("Failed to run git. Is git installed?"),
+        Ok(out) if !out.status.success() => Ok(None),
+        Ok(_) => {
+            let root = git_ok(&["rev-parse", "--show-toplevel"])
+                .map(PathBuf::from)
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+            Ok(Some(RepoContext {
+                root,
+                origin: git_ok(&["config", "--get", "remote.origin.url"]),
+                user_name: git_ok(&["config", "--local", "--get", "user.name"]),
+                user_email: git_ok(&["config", "--local", "--get", "user.email"]),
+                ssh_command: git_ok(&["config", "--local", "--get", "core.sshCommand"]),
+            }))
+        }
+    }
+}
+
+fn key_fingerprint(pub_path: &Path) -> Option<String> {
+    let output = Command::new("ssh-keygen")
+        .args(["-lf"])
+        .arg(pub_path)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn root_help_includes_examples_and_doctor() {
+        let help = Args::command().render_long_help().to_string();
+        assert!(help.contains("Examples"), "help should include examples:\n{help}");
+        assert!(help.contains("doctor"), "help should mention doctor:\n{help}");
+        assert!(help.contains("--verbose") || help.contains("-v"));
+        assert!(help.contains("docs/"));
+    }
+
+    #[test]
+    fn list_help_mentions_verbose() {
+        let cmd = Args::command();
+        let mut list = cmd
+            .find_subcommand("list")
+            .expect("list subcommand")
+            .clone();
+        let help = list.render_long_help().to_string();
+        assert!(help.contains("-v") || help.contains("verbose") || help.contains("list -v"));
+    }
+
+    #[test]
+    fn alias_for_account() {
+        let account = SshAccount {
+            name: "work".into(),
+            email: "a@b.com".into(),
+            key_file: "id_work".into(),
+            host: "github.com".into(),
+            description: None,
+            git_user_name: None,
+            git_user_email: None,
+        };
+        assert_eq!(SshManager::alias_for(&account), "github-work");
     }
 }
