@@ -1,12 +1,16 @@
 [package]
 name = "gam-cli"
-version = "0.1.0"
+version = "0.4.0"
 edition = "2021"
-description = "Git Account Manager CLI (gam-cli): Manage multiple Git SSH accounts easily"
+description = "Git Account Manager (gam): manage multiple Git SSH accounts and per-repo identity"
 
 [[bin]]
-name = "gam-cli"
+name = "gam"
 path = "src/main.rs"
+
+[lib]
+name = "gam_cli"
+path = "src/lib.rs"
 
 [dependencies]
 inquire = "0.7"
@@ -17,3 +21,8 @@ clap = { version = "4.4", features = ["derive"] }
 regex = "1.10"
 home = "0.5"
 open = "5.0"
+rmcp = { version = "3.2", features = ["server", "macros", "schemars", "transport-io"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-std"] }
+
+[dev-dependencies]
+tempfile = "3"

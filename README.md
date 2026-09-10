@@ -1,69 +1,92 @@
-# Git Account Manager CLI (`gam-cli`)
+# Git Account Manager (`gam`)
 
-Manage several Git SSH identities on one machine. Attach a repo to the right `user.name`, `user.email` and SSH key without changing the others.
+Manage several Git SSH identities on one machine. Attach a repo to the right `user.name`, `user.email`, and SSH key, and expose that mapping to AI agents over MCP.
 
-**Developer docs (Spanish, Diátaxis):** [docs/README.md](docs/README.md)  
-**New docs page template:** [docs/TEMPLATE.md](docs/TEMPLATE.md)
+The public command is **`gam`**. Installers also create a `gam-cli` alias.
+
+**Documentation (English):** [https://lucasgio.github.io/gam-cli/](https://lucasgio.github.io/gam-cli/)
+
+| You | Start here |
+| --- | --- |
+| Terminal user | [Install](https://lucasgio.github.io/gam-cli/install/) → [CLI](https://lucasgio.github.io/gam-cli/cli/) |
+| Cursor | [Install](https://lucasgio.github.io/gam-cli/install/) → [Cursor](https://lucasgio.github.io/gam-cli/agents/cursor/) |
+| Claude Code | [Install](https://lucasgio.github.io/gam-cli/install/) → [Claude Code](https://lucasgio.github.io/gam-cli/agents/claude-code/) |
+
+## What it does
+
+- Several SSH identities (work, personal, …) with aliases such as `Host github-work`
+- **Per-repo attach:** `user.name`, `user.email`, `core.sshCommand`
+- **`.gam.json`** in the repo: only `account` and `host_alias` — no emails, keys, or paths
+- **`gam ensure`:** what agents and hooks should run. Applies the resolved identity; does not write secrets
+- **`gam mcp`:** MCP stdio server in the same binary
+- **`gam doctor`:** git / ssh / key diagnostics
+
+`gam switch` still exists (legacy): it changes the global account and the `Host github.com` block in `~/.ssh/config`. For per-project work use `attach` / `ensure`.
 
 ## Installation
 
-### macOS & Linux
+### macOS and Linux
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lucasgio/gam-master/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lucasgio/gam-cli/main/install.sh | bash
 ```
 
 ### Windows (PowerShell)
+
 ```powershell
-iwr https://raw.githubusercontent.com/lucasgio/gam-master/main/install.ps1 -useb | iex
+iwr https://raw.githubusercontent.com/lucasgio/gam-cli/main/install.ps1 -useb | iex
 ```
 
 ### From source
-```bash
-git clone https://github.com/lucasgio/gam-master.git
-cd gam-master
-cargo install --path .
-```
-
-## Usage
 
 ```bash
-gam-cli --help              # examples, commands, --verbose
-gam-cli help list           # long help for one command
-gam-cli                     # interactive menu
-gam-cli add
-gam-cli list -v             # aliases, keys, fingerprints
-gam-cli status              # active account + this repo
-gam-cli attach              # bind current git repo
-gam-cli doctor              # diagnose git/ssh/keys
-gam-cli switch              # legacy global Host mapping
+git clone https://github.com/lucasgio/gam-cli.git
+cd gam-cli
+cargo install --path . --locked --bin gam
 ```
 
-Per-repo identity (`attach`) is the supported flow. `switch` still updates a global `Host <hostname>` block in `~/.ssh/config`.
+On some Macs, zsh aliases `gam` to `git am`. Use `type gam` and the full path (`~/.cargo/bin/gam` or `/usr/local/bin/gam`) if that happens. Details: [install docs](https://lucasgio.github.io/gam-cli/install/).
+
+## CLI usage
 
 ```bash
-git remote set-url origin git@github-work:org/repo.git
+gam --help              # examples, commands, --verbose, --json
+gam help list           # long help for one command
+gam                     # interactive menu
+gam add
+gam list -v             # aliases, keys, fingerprints
+gam status              # active account + this repo
+gam attach --account work
+gam ensure
+gam doctor              # diagnose git/ssh/keys
+gam switch --account work    # legacy global Host mapping
+gam mcp                 # MCP server for agents
 ```
 
-Existing `~/.ssh/gam_config.json` and keys are kept as-is when you upgrade. See [compatibilidad](docs/explanation/como-funciona.md#compatibilidad-de-config).
+## Agent usage
 
-## Troubleshooting
+Configure MCP with an **absolute** path to `gam` (Cursor’s GUI PATH often lacks Cargo). See [Cursor](https://lucasgio.github.io/gam-cli/agents/cursor/) and [Claude Code](https://lucasgio.github.io/gam-cli/agents/claude-code/).
 
-If an old alias (`gmc`) shadows the binary:
-
-```bash
-type gam-cli
-type gmc
+```json
+{
+  "mcpServers": {
+    "gam": {
+      "command": "/full/path/to/gam",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
 
-`gam-cli doctor` reports missing keys, git/ssh in PATH, and the current repo identity.
+Before `git fetch` / `push` / `commit`, the agent should call `ensure_identity` (or `gam ensure --json`) with the workspace path. Passphrases use a native OS dialog — never an MCP argument.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/contributing.md](docs/contributing.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs contributing](https://lucasgio.github.io/gam-cli/contributing/).
 
 ```bash
-cargo test
+cargo test --locked
 cargo run -- --help
 ```
 
-CI builds on Linux, macOS and Windows. Release tags `vX.Y.Z` publish binaries.
+CI builds on Linux, macOS, and Windows. Release tags `vX.Y.Z` publish binaries.

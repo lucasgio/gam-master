@@ -1,1 +1,6 @@
 /target
+.cursor/
+docs/_site/
+docs/.jekyll-cache/
+docs/.sass-cache/
+docs/vendor/
