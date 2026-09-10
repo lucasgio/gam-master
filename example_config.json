@@ -5,22 +5,26 @@
       "email": "juan@empresa.com",
       "key_file": "id_work_github_com",
       "host": "github.com",
-      "description": "Cuenta de trabajo para GitHub"
+      "description": "Cuenta de trabajo para GitHub",
+      "git_user_name": "Juan",
+      "git_user_email": "juan@empresa.com"
     },
     "personal": {
-      "name": "personal", 
+      "name": "personal",
       "email": "juan.personal@gmail.com",
       "key_file": "id_personal_github_com",
       "host": "github.com",
-      "description": "Cuenta personal para GitHub"
-    },
-    "gitlab-work": {
-      "name": "gitlab-work",
-      "email": "juan@empresa.com", 
-      "key_file": "id_gitlab-work_gitlab_com",
-      "host": "gitlab.com",
-      "description": "Cuenta de trabajo para GitLab"
+      "description": "Cuenta personal para GitHub",
+      "git_user_name": "Juan",
+      "git_user_email": "juan.personal@gmail.com"
     }
   },
-  "current_account": "personal"
+  "current_account": "personal",
+  "projects": [
+    {
+      "local_path": "/Users/juan/src/app",
+      "account_id": "work",
+      "origin": "git@github.com:org/app.git"
+    }
+  ]
 }

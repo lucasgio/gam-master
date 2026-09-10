@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$Repo = "lucasgio/gam-master"
-$Asset = "gam-cli-windows-amd64.zip"
+$Repo = "lucasgio/gam-cli"
+$Asset = "gam-windows-amd64.zip"
 $Url = "https://github.com/$Repo/releases/latest/download/$Asset"
 $InstallDir = "$env:USERPROFILE\.gam\bin"
 $ZipPath = "$env:TEMP\$Asset"
@@ -16,11 +16,12 @@ if (-not (Test-Path $InstallDir)) {
 Write-Host "Extracting to $InstallDir..."
 Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
 
-$ExePath = "$InstallDir\gam-cli.exe"
+$ExePath = "$InstallDir\gam.exe"
 if (Test-Path $ExePath) {
-    Write-Host "✅ gam-cli installed successfully to $ExePath"
+    Copy-Item $ExePath "$InstallDir\gam-cli.exe" -Force
+    Write-Host "✅ gam installed successfully to $ExePath"
 } else {
-    Write-Host "❌ Installation failed. gam-cli.exe not found."
+    Write-Host "❌ Installation failed. gam.exe not found."
     exit 1
 }
 
@@ -31,7 +32,7 @@ if ($env:Path -notlike "*$InstallDir*") {
     Write-Host "[System.Environment]::SetEnvironmentVariable('Path', [System.Environment]::GetEnvironmentVariable('Path', 'User') + ';$InstallDir', 'User')"
 } else {
     Write-Host "✅ $InstallDir is already in your PATH."
-    Write-Host "Try running 'gam-cli --help'"
+    Write-Host "Try running 'gam --help'"
 }
 
 Remove-Item $ZipPath -Force

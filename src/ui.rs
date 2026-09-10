@@ -53,24 +53,28 @@ pub fn clap_styles() -> clap::builder::Styles {
 
 pub const ROOT_AFTER_HELP: &str = "\
 Examples:
-  gam-cli                 Open the interactive menu
-  gam-cli add             Create a new SSH identity
-  gam-cli list -v         Accounts with aliases, keys and fingerprints
-  gam-cli status -v       Active account plus this repo's git identity
-  gam-cli attach          Bind the current git repo to an account
-  gam-cli doctor          Diagnose SSH keys, config and git identity
-  gam-cli help list       Detailed help for one command
+  gam                 Open the interactive menu
+  gam add             Create a new SSH identity
+  gam list -v         Accounts with aliases, keys and fingerprints
+  gam status -v       Active account plus this repo's git identity
+  gam add --name work --email you@org.com --json
+  gam attach          Bind the current git repo to an account
+  gam ensure --json   Apply mapped identity (agents)
+  gam doctor          Diagnose SSH keys, config and git identity
+  gam mcp             MCP stdio server for AI agents
+  gam help list       Detailed help for one command
 
-Docs: docs/README.md (tutorials, how-to, reference, architecture)
+Docs: https://lucasgio.github.io/gam-cli/
 ";
 
 pub const ROOT_LONG_ABOUT: &str = "\
-Git Account Manager (gam-cli) keeps several Git SSH identities on one machine.
+Git Account Manager (gam) keeps several Git SSH identities on one machine.
 
 Each account gets its own key and a Host alias in ~/.ssh/config
 (e.g. git@github-work:org/repo.git). Use attach to set user.name, user.email
 and core.sshCommand for a single repository without changing other repos.
 
 Run with no arguments for an interactive menu. Pass -v / --verbose on list,
-status, attach and doctor for extra diagnostics. See docs/ for the full guide.
+status and doctor for extra diagnostics. Pass --json for agents.
+See https://lucasgio.github.io/gam-cli/ for the full guide.
 ";

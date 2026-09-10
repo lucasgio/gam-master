@@ -3,34 +3,32 @@
 set -euo pipefail
 
 # gam installer (user-friendly, no sudo by default)
+# Asset names must match .github/workflows/release.yml
 
-REPO="lucasgio/gam"
+REPO="lucasgio/gam-cli"
 
-detect_target() {
-  local os arch target
+detect_asset() {
+  local os arch
   os="$(uname -s)"
   arch="$(uname -m)"
 
   case "$os" in
     Linux)
       case "$arch" in
-        x86_64|amd64) target="x86_64-unknown-linux-gnu" ;;
-        aarch64|arm64) target="aarch64-unknown-linux-gnu" ;;
+        x86_64|amd64) echo "gam-linux-amd64.tar.gz" ;;
         *) echo "Unsupported Linux arch: $arch" >&2; exit 1 ;;
       esac
       ;;
     Darwin)
       case "$arch" in
-        x86_64) target="x86_64-apple-darwin" ;;
-        arm64) target="aarch64-apple-darwin" ;;
+        x86_64) echo "gam-macos-amd64.tar.gz" ;;
+        arm64) echo "gam-macos-arm64.tar.gz" ;;
         *) echo "Unsupported macOS arch: $arch" >&2; exit 1 ;;
       esac
       ;;
     *)
       echo "Unsupported OS: $os" >&2; exit 1 ;;
   esac
-
-  echo "$target"
 }
 
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
@@ -47,14 +45,14 @@ download() {
 }
 
 main() {
-  local target url tmpdir tarball bindest binpath instdir
-  target="$(detect_target)"
-  url="https://github.com/${REPO}/releases/latest/download/gam-${target}.tar.gz"
+  local asset url tmpdir tarball bindest binpath instdir
+  asset="$(detect_asset)"
+  url="https://github.com/${REPO}/releases/latest/download/${asset}"
 
   tmpdir="$(mktemp -d)"
   trap 'rm -rf "$tmpdir"' EXIT
 
-  echo "Downloading gam for ${target}..."
+  echo "Downloading ${asset}..."
   tarball="$tmpdir/gam.tar.gz"
   download "$url" "$tarball"
 
@@ -82,6 +80,8 @@ main() {
     cp "$binpath" "$bindest"
     chmod 755 "$bindest"
   }
+
+  ln -sf "$bindest" "$instdir/gam-cli" || true
 
   # PATH hint
   case ":${PATH}:" in
@@ -111,5 +111,3 @@ main() {
 }
 
 main "$@"
-
-

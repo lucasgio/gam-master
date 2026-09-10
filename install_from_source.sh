@@ -36,24 +36,25 @@ read -p "Do you want to install Git Account Manager CLI (gam-cli) globally? (req
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "🔄 Installing globally..."
-    sudo cp target/release/gam-cli /usr/local/bin/
-    echo "✅ gam-cli installed to /usr/local/bin/gam-cli"
+    sudo cp target/release/gam /usr/local/bin/gam
+    sudo ln -sf /usr/local/bin/gam /usr/local/bin/gam-cli
+    echo "✅ gam installed to /usr/local/bin/gam (alias: gam-cli)"
     echo ""
-    echo "You can now run: gam-cli"
+    echo "You can now run: gam"
 else
-    echo "ℹ️  You can run Git Account Manager CLI using:"
+    echo "ℹ️  You can run Git Account Manager using:"
     echo "   cd $(pwd)"
-    echo "   ./target/release/gam-cli"
+    echo "   ./target/release/gam"
 fi
 
 echo ""
 echo "🎉 Installation complete!"
 echo ""
 echo "📖 Usage:"
-echo "   gam-cli          # Interactive mode"
-echo "   gam-cli add      # Add new account"
-echo "   gam-cli list     # List accounts"
-echo "   gam-cli switch   # Switch accounts"
-echo "   gam-cli status   # Show current account"
+echo "   gam              # Interactive mode"
+echo "   gam add          # Add new account"
+echo "   gam list --json  # List accounts"
+echo "   gam ensure --json"
+echo "   gam mcp          # MCP server for agents"
 echo ""
 echo "📚 See README.md for detailed documentation"
